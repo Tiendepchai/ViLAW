@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+redis
+rq
+requests
+beautifulsoup4
+lxml
+numpy
+faiss-cpu
+scikit-learn
+# Optional:
+# sentence-transformers
+# pytz
