@@ -1,0 +1,74 @@
+version: "3.8"
+
+networks:
+  vilaw-net:
+    driver: bridge
+
+volumes:
+  ollama:
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [vilaw-net]
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    networks: [vilaw-net]
+
+  ingestor:
+    build: services/ingestor
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./indexes:/app/indexes
+      - ./shared:/app/shared:ro
+    depends_on:
+      - redis
+    ports:
+      - "8081:8081"
+    networks: [vilaw-net]
+
+  worker:
+    build: services/worker
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./indexes:/app/indexes
+      - ./shared:/app/shared:ro
+    depends_on:
+      - redis
+    networks: [vilaw-net]
+
+  api:
+    build: services/api
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data:ro
+      - ./indexes:/app/indexes
+      - ./shared:/app/shared:ro
+    depends_on:
+      - redis
+      - worker
+      - ollama
+    ports:
+      - "8080:8080"
+    networks: [vilaw-net]
+
+  updater:
+    build: services/updater
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - ingestor
+    networks: [vilaw-net]
