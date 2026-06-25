@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from search import Searcher
 from rag import run_rag
+from stream import router as stream_router
 from shared.logging import setup_logging, get_logger
 from shared.settings import settings
 from shared.db import configure as db_configure, migrate as db_migrate
@@ -52,6 +53,8 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 # ── Routes ──
+app.include_router(stream_router)
+
 @app.get("/health")
 def health():
     ready = os.path.exists(os.path.join(INDEX_DIR, "bo_pd.index"))
