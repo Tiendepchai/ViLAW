@@ -6,11 +6,14 @@ from search import Searcher
 from rag import run_rag
 from shared.logging import setup_logging, get_logger
 from shared.settings import settings
+from shared.db import configure as db_configure, migrate as db_migrate
 
 setup_logging("api")
 log = get_logger("api")
 
 settings.validate_required()
+db_configure()
+db_migrate()
 
 app = FastAPI(
     title="ViLAW API",

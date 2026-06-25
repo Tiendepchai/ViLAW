@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir fastapi uvicorn rq redis pydantic-settings struct
     && chown -R appuser:appuser /app
 USER appuser
 
+ENV PYTHONPATH=/app
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8081/health')"
 

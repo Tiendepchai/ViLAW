@@ -6,11 +6,14 @@ from rq import Queue
 
 from shared.logging import setup_logging, get_logger
 from shared.settings import settings
+from shared.db import configure as db_configure, migrate as db_migrate
 
 setup_logging("ingestor")
 log = get_logger("ingestor")
 
 settings.validate_required()
+db_configure()
+db_migrate()
 
 app = FastAPI(title="ViLAW Ingestor", version="1.0.0")
 

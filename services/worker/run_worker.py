@@ -2,9 +2,10 @@
 import os
 import sys
 
-# Ensure the project root is on sys.path so shared/ and jobs/ are importable
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# Ensure the project root (/app) is on sys.path so shared/ and jobs/ are importable
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import redis
 from rq import Queue, Worker
