@@ -12,6 +12,17 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     networks: [vilaw-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
 
   ollama:
     image: ollama/ollama:latest
@@ -21,6 +32,18 @@ services:
     volumes:
       - ollama:/root/.ollama
     networks: [vilaw-net]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    stop_grace_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "4"
 
   ingestor:
     build: services/ingestor
@@ -31,10 +54,17 @@ services:
       - ./indexes:/app/indexes
       - ./shared:/app/shared:ro
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     ports:
       - "8081:8081"
     networks: [vilaw-net]
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
 
   worker:
     build: services/worker
@@ -45,8 +75,15 @@ services:
       - ./indexes:/app/indexes
       - ./shared:/app/shared:ro
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks: [vilaw-net]
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2"
 
   api:
     build: services/api
@@ -57,18 +94,31 @@ services:
       - ./indexes:/app/indexes
       - ./shared:/app/shared:ro
     depends_on:
-      - redis
-      - worker
-      - ollama
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
     ports:
       - "8080:8080"
     networks: [vilaw-net]
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2"
 
   updater:
     build: services/updater
     env_file: .env
     restart: unless-stopped
     depends_on:
-      - redis
-      - ingestor
+      ingestor:
+        condition: service_started
     networks: [vilaw-net]
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.3"

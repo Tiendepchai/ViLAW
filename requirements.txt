@@ -8,6 +8,8 @@ lxml
 numpy
 faiss-cpu
 scikit-learn
+pydantic-settings>=2.0
+structlog>=24.0
 # Optional:
 # sentence-transformers
 # pytz

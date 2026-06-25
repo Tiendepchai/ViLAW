@@ -4,16 +4,26 @@ import redis
 from fastapi import FastAPI
 from rq import Queue
 
-app = FastAPI()
+from shared.logging import setup_logging, get_logger
+from shared.settings import settings
+
+setup_logging("ingestor")
+log = get_logger("ingestor")
+
+settings.validate_required()
+
+app = FastAPI(title="ViLAW Ingestor", version="1.0.0")
 
 r = redis.from_url(
-    f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}/0"
+    f"redis://{settings.redis_host}:{settings.redis_port}/0"
 )
-q = Queue(os.getenv("RQ_QUEUE", "bo_pd_jobs"), connection=r)
+q = Queue(settings.rq_queue, connection=r)
+
 
 @app.get("/health")
 def health():
     return {"ok": True}
+
 
 @app.post("/ingest/refresh")
 def refresh():
@@ -24,4 +34,10 @@ def refresh():
         result_ttl=24 * 3600,
         timeout=60 * 60 * 2,
     )
+    log.info("refresh_enqueued", job_id=job.id)
     return {"enqueued": True, "job_id": job.id}
+
+
+@app.on_event("shutdown")
+def shutdown():
+    log.info("shutdown", service="ingestor")
