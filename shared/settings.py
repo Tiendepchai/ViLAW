@@ -25,11 +25,16 @@ class Settings(BaseSettings):
     default_alpha: float = 0.6
     default_beta: float = 0.4
 
-    # RAG
+    # RAG — Ollama (local)
     rag_backend: str = "ollama"  # ollama | summary
     rag_model: str = "qwen2.5:7b"
     rag_max_chars: int = 8000
     ollama_host: str = "http://ollama:11434"
+
+    # RAG — OpenAI-compatible (remote, skips ollama)
+    openai_base_url: str = ""
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
 
     # RQ / Redis
     redis_host: str = "redis"

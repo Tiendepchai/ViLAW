@@ -24,8 +24,12 @@ services:
           memory: 256M
           cpus: "0.5"
 
+  # ── LLM backend ──
+  # Skipped automatically when OPENAI_BASE_URL is set in .env
+  # (Makefile selects --profile llm only when using local Ollama)
   ollama:
     image: ollama/ollama:latest
+    profiles: ["llm"]
     restart: unless-stopped
     ports:
       - "11434:11434"
@@ -96,8 +100,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      ollama:
-        condition: service_healthy
+    # Note: ollama is NOT a hard dependency.
+    # When OPENAI_BASE_URL+OPENAI_API_KEY are set, api calls remote LLM instead.
     ports:
       - "8080:8080"
     networks: [vilaw-net]

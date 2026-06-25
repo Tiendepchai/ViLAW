@@ -7,17 +7,15 @@ Usage:
 """
 
 import json
-import os
 from typing import AsyncGenerator
 
-import requests
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from shared.logging import get_logger
 from shared.settings import settings
-from rag import pack_contexts, build_prompt
+from rag import pack_contexts, build_prompt, generate_answer_stream
 from search import Searcher
 
 log = get_logger("stream")
@@ -40,42 +38,9 @@ class StreamQ(BaseModel):
     top_k: int = 6
 
 
-async def _stream_ollama(prompt: str) -> AsyncGenerator[str, None]:
-    """Yield SSE data events from Ollama streaming."""
-    host = settings.ollama_host
-    model = settings.rag_model
-
-    try:
-        r = requests.post(
-            f"{host}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": True,
-                "options": {"temperature": 0.1},
-            },
-            stream=True,
-            timeout=600,
-        )
-        r.raise_for_status()
-    except Exception as e:
-        log.error("ollama_stream_start_failed", error=str(e))
-        yield f"data: {json.dumps({'error': 'Không thể kết nối mô hình ngôn ngữ.'})}\n\n"
-        yield "data: [DONE]\n\n"
-        return
-
-    for line in r.iter_lines(decode_unicode=True):
-        if not line:
-            continue
-        try:
-            chunk = json.loads(line)
-            token = chunk.get("response", "")
-            if token:
-                yield f"data: {json.dumps({'token': token})}\n\n"
-            if chunk.get("done"):
-                break
-        except json.JSONDecodeError:
-            continue
+async def _generate_events(prompt: str) -> AsyncGenerator[str, None]:
+    for token in generate_answer_stream(prompt):
+        yield f"data: {json.dumps({'token': token})}\n\n"
 
 
 @router.post("/v1/ask/stream")
@@ -100,42 +65,26 @@ async def ask_stream(body: StreamQ, request: Request):
         return StreamingResponse(
             no_context(),
             media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
-            },
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
         )
 
     prompt = build_prompt(body.q, kept)
 
-    # Build citations before streaming
     cites = [
-        {
-            "tag": f"C{i+1}",
-            "title": c["title"],
-            "url": c.get("url"),
-            "doc_id": c["id"],
-            "chunk_id": c.get("chunk_id"),
-        }
+        {"tag": f"C{i+1}", "title": c["title"], "url": c.get("url"), "doc_id": c["id"], "chunk_id": c.get("chunk_id")}
         for i, c in enumerate(kept)
     ]
 
     async def generate():
-        async for event in _stream_ollama(prompt):
+        async for event in _generate_events(prompt):
             yield event
             if await request.is_disconnected():
                 break
-        # Final citations event
         yield f"data: {json.dumps({'citations': cites, 'done': True})}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(
         generate(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
